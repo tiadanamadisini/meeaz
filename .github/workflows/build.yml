@@ -1,1 +1,32 @@
-
+name: Build APK
+on: [push, workflow_dispatch]
+permissions:
+  contents: write
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Buka zip
+        run: |
+          Z=$(ls *.zip | head -1); unzip -o -q "$Z" -d src
+          D=$(dirname "$(find src -name pubspec.yaml | head -1)"); mv "$D" app
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+      - name: Build
+        working-directory: app
+        run: |
+          flutter create --org com.meeaz --project-name meeaz_project --platforms android .
+          python3 ci/patch_android.py
+          flutter pub get
+          flutter build apk --release --target-platform android-arm64
+          mv build/app/outputs/flutter-apk/app-release.apk ../Meeaz.apk
+      - uses: softprops/action-gh-release@v2
+        with:
+          tag_name: apk-${{ github.run_number }}
+          files: Meeaz.apk
